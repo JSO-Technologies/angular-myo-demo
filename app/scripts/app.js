@@ -12,7 +12,8 @@ angular
   .module('angularMyoDemoApp', [
     'ngAnimate',
     'ngRoute',
-    'ngSanitize'
+    'ngSanitize',
+    'ngMyo'
   ])
   .config(function ($routeProvider) {
     $routeProvider
