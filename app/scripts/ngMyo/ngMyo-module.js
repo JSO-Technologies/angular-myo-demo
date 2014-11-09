@@ -8,7 +8,10 @@
            useRollPitchYaw:         true,
            broadcastOnConnected:    true,
            broadcastOnDisconnected: true,
+           broadcastOnLockUnlock:   true,
            skipOneOrientationEvery: 2,
-           rollPitchYawScale:       18
+           rollPitchYawScale:       18,
+           lockUnlockPose:          'thumb_to_pinky',
+           lockUnlockPoseTime:      500
        });
 })();

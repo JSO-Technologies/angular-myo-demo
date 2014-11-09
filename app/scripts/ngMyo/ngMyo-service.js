@@ -1,60 +1,12 @@
 'use strict';
 
 (function() {
-    function MyoDevice(id, version) {
-        this.id = id;
-        this.version = version;
 
-        /************************** Orientation request number **************************/
-        var orientationRequestNb = 0;
-
-        this.incrementOrientationRequest = function() {
-            return orientationRequestNb++;
-        };
-
-        /*********************************** Myo Lock **********************************/
-        var locked = false;
-
-        this.lock = function() {
-            locked = true;
-        };
-
-        this.unlock = function() {
-            locked = false;
-        };
-
-        this.isLocked = function() {
-            return locked;
-        };
-
-        /********************************* Event trigger ********************************/
-        this.onOrientation = function(data, rpy) {
-            /*
-            console.log('Device onOrientation');
-            console.log(data);
-            console.log('Roll Pitch Yaw');
-            console.log(rpy);
-            */
-        };
-
-        this.onPose = function(data) {
-            console.log(data);
-        };
-
-        this.onArmRecognized = function(data) {
-            console.log('Device onArmRecognized');
-            console.log(data);
-        };
-
-        this.onArmLost = function(data) {
-            console.log('Device onArmLost');
-            console.log(data);
-        };
-    }
-
-    function Myo($rootScope, $window, MyoOptions, MyoOrientation) {
+    function Myo($rootScope, $window, $timeout, MyoOptions, MyoOrientation) {
         var instanceOptions = {};
         var devices = new Map();
+        var eventsByDevice = new Map();
+        var lockTimeouts = new Map();
 
         /************************************** helpers ***************************************/
         /**
@@ -90,30 +42,60 @@
             return typeof variable === 'number' && (variable % 1) === 0;
         };
 
+        /*************************************** Events listeners ****************************************/
+        /**
+         *
+         * @param eventName - 'armRecognized' | 'armLost' | 'thumb_to_pinky' | 'fingers_spread' | 'fingers_spread' | 'wave_out' | 'fist'
+         * @param fn - callback function taking a {@link MyoDevice} as argument
+         * @param deviceId - Myo device id. If undefined, this callback will be attached to myo device 0
+         */
+        this.on = function(eventName, fn, deviceId) {
+            if(!deviceId) {
+                deviceId = 0;
+            }
+
+            var fnsByEvent = eventsByDevice.get(deviceId) || new Map();
+            var fns = fnsByEvent.get(eventName) || [];
+            fns.push(fn);
+
+            fnsByEvent.set(eventName, fns);
+            eventsByDevice.set(deviceId, fnsByEvent);
+        };
+
         /************************************** start with options ***************************************/
         /**
          * Define ngMyo options and initialize websocket listeners
-         * @param customOptions - options. If not defined, ngMyo will take default options
+         * @param customOptions - user options. If not defined, ngMyo will take default options
          */
         this.start = function(customOptions) {
+            initOptions(customOptions);
+            initWebSocket();
+        };
+
+        /**
+         * Initialize options combining custom options and default options
+         * @param customOptions - user options. If not defined, ngMyo will take default options
+         */
+        var initOptions = function(customOptions) {
             if(customOptions) {
                 instanceOptions.useRollPitchYaw = customOptions.useRollPitchYaw !== undefined ? customOptions.useRollPitchYaw : MyoOptions.useRollPitchYaw;
                 instanceOptions.rollPitchYawScale = customOptions.rollPitchYawScale !== undefined ? customOptions.rollPitchYawScale : MyoOptions.rollPitchYawScale;
                 instanceOptions.broadcastOnConnected = customOptions.broadcastOnConnected !== undefined ? customOptions.broadcastOnConnected : MyoOptions.broadcastOnConnected;
                 instanceOptions.broadcastOnDisconnected = customOptions.broadcastOnDisconnected !== undefined ? customOptions.broadcastOnDisconnected : MyoOptions.broadcastOnDisconnected;
+                instanceOptions.broadcastOnLockUnlock = customOptions.broadcastOnLockUnlock !== undefined ? customOptions.broadcastOnLockUnlock : MyoOptions.broadcastOnLockUnlock;
                 instanceOptions.skipOneOrientationEvery = isInteger(customOptions.skipOneOrientationEvery) ? customOptions.skipOneOrientationEvery : MyoOptions.skipOneOrientationEvery;
+                instanceOptions.lockUnlockPose = customOptions.lockUnlockPose !== undefined ? customOptions.lockUnlockPose : MyoOptions.lockUnlockPose;
+                instanceOptions.lockUnlockPoseTime = isInteger(customOptions.lockUnlockPoseTime) ? customOptions.lockUnlockPoseTime : MyoOptions.lockUnlockPoseTime;
             }
             else {
                 instanceOptions = MyoOptions;
             }
-
-            initialize();
         };
 
         /**
-         * Initialize websocket listeners
+         * Initialize websocket and listeners
          */
-        var initialize = function() {
+        var initWebSocket = function() {
             if (!$window.WebSocket){
                 console.error('Socket not supported by browser');
             }
@@ -148,13 +130,21 @@
                 }
             };
 
+            /**
+             * Create a new {@link MyoDevice} based on data and attach registered callbacks (see {@link Myo#on}
+             * @param data - websocket data
+             */
             var registerDevice = function(data) {
-                devices.set(data.myo, new MyoDevice(data.myo, data.version.join('.')));
+                devices.set(data.myo, new MyoDevice(data.myo, data.version.join('.'), ws, eventsByDevice.get(data.myo)));
                 if(instanceOptions.broadcastOnConnected) {
                     $rootScope.$broadcast('ngMyoConnected', data.myo);
                 }
             };
 
+            /**
+             * Delete a {@link MyoDevice}. This is called on myo disconnected event
+             * @param data - websocket data
+             */
             var unregisterDevice = function(data) {
                 devices.delete(data.myo);
                 if(instanceOptions.broadcastOnDisconnected) {
@@ -162,6 +152,11 @@
                 }
             };
 
+            /**
+             * Action when an orientation message is sent.
+             * The action is not triggered if device is locked or if this event should be skipped (see {@link Myo#shouldSkipOrientation})
+             * @param data - websocket data
+             */
             var triggerOrientation = function(data) {
                 var device = devices.get(data.myo);
                 if(device && !device.isLocked() && !shouldSkipOrientation(device)) {
@@ -173,13 +168,10 @@
                 }
             };
 
-            var triggerPose = function(data) {
-                var device = devices.get(data.myo);
-                if(device && !device.isLocked()) {
-                    device.onPose(data);
-                }
-            };
-
+            /**
+             * Action when user perform arm recognition gesture
+             * @param data - websocket data
+             */
             var triggerArmRecognized = function(data) {
                 var device = devices.get(data.myo);
                 if(device) {
@@ -187,15 +179,56 @@
                 }
             };
 
+            /**
+             * Action when arm is lost (myo device moved or removed)
+             * @param data - websocket data
+             */
             var triggerArmLost = function(data) {
                 var device = devices.get(data.myo);
                 if(device) {
                     device.onArmLost(data);
                 }
             };
+
+            /**
+             * Action whe user perform a pose.
+             * If pose is lock/unlock pose (defined in options, default is 'thumb_to_pinky'), only lock/unlock is performed.
+             * Else registered callbacks are called (see {Myo#on}).
+             * @param data - websocket data
+             */
+            var triggerPose = function(data) {
+                var device = devices.get(data.myo);
+                if(device) {
+                    $timeout.cancel(lockTimeouts.get(data.myo));
+
+                    if(instanceOptions.lockUnlockPose === data.pose) {
+                        lockUnlockDevice(device);
+
+                    }
+                    else if(!device.isLocked()) {
+                        device.onPose(data);
+                    }
+                }
+            };
+
+            /**
+             * Lock or unlock device only if user perform the pose during the pose time defined in options (defaut 500ms).
+             * @param device - the {@link MyoDevice}
+             */
+            var lockUnlockDevice = function(device) {
+                var timeoutPromise = $timeout(function() {
+                    device.lockOrUnlock();
+
+                    if(instanceOptions.broadcastOnLockUnlock) {
+                        $rootScope.$broadcast('ngMyo' + (device.isLocked() ? 'Lock' : 'Unlock'), device.id);
+                    }
+                }, instanceOptions.lockUnlockPoseTime);
+
+                lockTimeouts.set(device.id, timeoutPromise);
+            }
         };
     }
 
     angular.module('ngMyo')
-        .service('Myo', ['$rootScope', '$window', 'MyoOptions', 'MyoOrientation', Myo]);
+        .service('Myo', ['$rootScope', '$window', '$timeout', 'MyoOptions', 'MyoOrientation', Myo]);
 })();
