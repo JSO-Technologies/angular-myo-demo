@@ -23,6 +23,26 @@
             };
         };
 
+        /**
+         * The roll/pitch/yaw depends on the direction of the myo device.
+         * This function calculate the diff between a starting rpy (or offset) and the current rpy.
+         * The diff is then normalize to have a unique scale, not depending on device direction, and a clear vision of the movement the user just performed.
+         *
+         * Roll : rotate to the left --> negative from 0 to -(scale/2)
+         * Roll : rotate to the right --> positive from 0 to (scale/2)
+         *
+         * Pitch : lower arm --> negative from 0 to -(scale/2)
+         * Pitch : raise arm --> positive from 0 to (scale/2)
+         *
+         * Yaw : arm to the left --> negative from 0 to -(scale/2)
+         * Yaw : arm to the right --> positive from 0 to (scale/2)
+         *
+         * @param rpy - the current roll/pitch/yaw
+         * @param rpyOffset - the starting roll/pitch/yaw
+         * @param rpyScale - the roll/pitch/yaw scale
+         * @param direction - the myo device x_direction. 1 : myo orientation 'toward_wrist', -1 : myo orientation 'toward_elbow'
+         * @returns {{roll: number, pitch: number, yaw: number}} - the roll/pitch/yaw diff
+         */
         this.calculateRPYDiff = function(rpy, rpyOffset, rpyScale, direction) {
             var roll = adaptWithScale(rpy.roll - rpyOffset.roll, rpyScale) * direction;
             var pitch = adaptWithScale(rpyOffset.pitch - rpy.pitch, rpyScale) * direction;

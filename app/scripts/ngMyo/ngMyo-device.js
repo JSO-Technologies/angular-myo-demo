@@ -72,6 +72,11 @@ function MyoDevice(id, version, ws, fnsByEvent) {
     /********************************* Orientation offset ********************************/
     var rpyOffset, lastRpy;
 
+    /**
+     * Getter/Setter for the roll/pitch/yaw offset
+     * @param rpy - if defined, set the offset, else get the offset
+     * @returns {{roll: number, pitch: number, yaw: number}} - the offset
+     */
     this.rpyOffset = function(rpy) {
         if(rpy) {
             rpyOffset = rpy;
@@ -81,10 +86,16 @@ function MyoDevice(id, version, ws, fnsByEvent) {
         }
     };
 
+    /**
+     * Set the offset with the last captured roll/pitch/yaw
+     */
     this.setLastRpyAsOffset = function() {
         rpyOffset = lastRpy;
     };
 
+    /**
+     * Clear the roll/pitch/yaw offset
+     */
     this.clearRpyOffset = function() {
         rpyOffset = undefined;
     } ;
@@ -92,10 +103,20 @@ function MyoDevice(id, version, ws, fnsByEvent) {
     /********************************* Orientation *********************************/
     var direction;
 
+    /**
+     * Get the direction which is 1 or -1 depending on the myo device x_orientation
+     * @returns {number} - 1 : myo orientation 'toward_wrist', -1 : myo orientation 'toward_elbow'
+     */
     this.direction = function() {
         return direction;
     };
 
+    /**
+     * Call the orientation callback functions
+     * @param data - the data from websocket
+     * @param rpy - the calculated roll/pitch/yaw
+     * @param rpyDiff - the calculated roll/pitch/yaw diff
+     */
     this.onOrientation = function(data, rpy, rpyDiff) {
         lastRpy = rpy;
         var fns = self.fnsByEvent.get('orientation');
