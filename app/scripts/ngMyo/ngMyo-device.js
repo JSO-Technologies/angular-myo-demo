@@ -7,7 +7,6 @@ function MyoDevice(id, version, ws, fnsByEvent) {
     this.version = version;
     this.ws = ws;
     this.fnsByEvent = fnsByEvent || new Map();
-    this.currentPose;
 
     /************************** Orientation request number **************************/
     var orientationRequestNb = 0;
@@ -62,31 +61,56 @@ function MyoDevice(id, version, ws, fnsByEvent) {
      * @param intensity - 'short' | 'medium' | 'long'
      */
     this.vibrate = function(intensity) {
-        var intensity = intensity || 'medium';
+        intensity = intensity || 'medium';
         self.ws.send(JSON.stringify(['command',{
-            "command": "vibrate",
-            "myo": self.id,
-            "type": intensity
+            command: 'vibrate',
+            myo: self.id,
+            type: intensity
         }]));
     };
 
-    /********************************* Event trigger ********************************/
-    this.onOrientation = function(data, rpy) {
-        /*
-         console.log('Device onOrientation');
-         console.log(data);
-         console.log('Roll Pitch Yaw');
-         console.log(rpy);
-         */
+    /********************************* Orientation offset ********************************/
+    var rpyOffset, lastRpy;
+
+    this.rpyOffset = function(rpy) {
+        if(rpy) {
+            rpyOffset = rpy;
+        }
+        else {
+            return rpyOffset;
+        }
     };
 
-    /**
-     * Trigger pose callbacks with the MyoDevice as argument
-     * @param data - websocket pose data
-     */
-    this.onPose = function(data) {
-        self.currenPose = data.pose;
-        performCallbackFns(data.pose);
+    this.setLastRpyAsOffset = function() {
+        rpyOffset = lastRpy;
+    };
+
+    this.clearRpyOffset = function() {
+        rpyOffset = undefined;
+    } ;
+
+    /********************************* Orientation *********************************/
+    var direction;
+
+    this.direction = function() {
+        return direction;
+    };
+
+    this.onOrientation = function(data, rpy, rpyDiff) {
+        lastRpy = rpy;
+        var fns = self.fnsByEvent.get('orientation');
+        if(fns) {
+            fns.forEach(function(fn) {
+                var orientationData = {
+                    accelerometer: data.accelerometer,
+                    gyroscope: data.gyroscope,
+                    orientation: data.orientation,
+                    rpy: rpy,
+                    rpyDiff: rpyDiff
+                }
+                fn(self, orientationData);
+            });
+        }
     };
 
     /**
@@ -94,6 +118,12 @@ function MyoDevice(id, version, ws, fnsByEvent) {
      * @param data - websocket pose data
      */
     this.onArmRecognized = function(data) {
+        if(data.x_direction === 'toward_elbow') {
+            direction = -1;
+        }
+        else if(data.x_direction === 'toward_wrist') {
+            direction = 1;
+        }
         performCallbackFns('arm_recognized');
     };
 
@@ -103,6 +133,16 @@ function MyoDevice(id, version, ws, fnsByEvent) {
      */
     this.onArmLost = function(data) {
         performCallbackFns('arm_lost');
+    };
+
+    /********************************* Pose trigger ********************************/
+    /**
+     * Trigger pose callbacks with the MyoDevice as argument
+     * @param data - websocket pose data
+     */
+    this.onPose = function(data) {
+        self.currenPose = data.pose;
+        performCallbackFns(data.pose);
     };
 
     /**
@@ -116,5 +156,5 @@ function MyoDevice(id, version, ws, fnsByEvent) {
                 fn(self);
             });
         }
-    }
+    };
 }

@@ -3,21 +3,14 @@
 (function() {
 
     function Myo($rootScope, $window, $timeout, MyoOptions, MyoOrientation) {
+        var self = this;
+
         var instanceOptions = {};
         var devices = new Map();
         var eventsByDevice = new Map();
         var lockTimeouts = new Map();
 
         /************************************** helpers ***************************************/
-        /**
-         * Get devise from id
-         * @param id - the device id
-         * @returns the {@link MyoDevice}
-         */
-        this.getDevice = function(id) {
-            return devices.get(id);
-        };
-
         /**
          * Test if orientation request should be skipped.
          *
@@ -45,7 +38,7 @@
         /*************************************** Events listeners ****************************************/
         /**
          *
-         * @param eventName - 'armRecognized' | 'armLost' | 'thumb_to_pinky' | 'fingers_spread' | 'fingers_spread' | 'wave_out' | 'fist'
+         * @param eventName - 'armRecognized' | 'armLost' | 'thumb_to_pinky' | 'fingers_spread' | 'wave_in' | 'wave_out' | 'fist'
          * @param fn - callback function taking a {@link MyoDevice} as argument
          * @param deviceId - Myo device id. If undefined, this callback will be attached to myo device 0
          */
@@ -60,6 +53,8 @@
 
             fnsByEvent.set(eventName, fns);
             eventsByDevice.set(deviceId, fnsByEvent);
+
+            return self;
         };
 
         /************************************** start with options ***************************************/
@@ -86,6 +81,7 @@
                 instanceOptions.skipOneOrientationEvery = isInteger(customOptions.skipOneOrientationEvery) ? customOptions.skipOneOrientationEvery : MyoOptions.skipOneOrientationEvery;
                 instanceOptions.lockUnlockPose = customOptions.lockUnlockPose !== undefined ? customOptions.lockUnlockPose : MyoOptions.lockUnlockPose;
                 instanceOptions.lockUnlockPoseTime = isInteger(customOptions.lockUnlockPoseTime) ? customOptions.lockUnlockPoseTime : MyoOptions.lockUnlockPoseTime;
+                instanceOptions.poseTime = isInteger(customOptions.poseTime) ? customOptions.poseTime : MyoOptions.poseTime;
             }
             else {
                 instanceOptions = MyoOptions;
@@ -97,7 +93,7 @@
          */
         var initWebSocket = function() {
             if (!$window.WebSocket){
-                console.error('Socket not supported by browser');
+                throw new Error('Socket not supported by browser');
             }
 
             var ws = new $window.WebSocket(MyoOptions.wsUrl + MyoOptions.apiVersion);
@@ -160,11 +156,14 @@
             var triggerOrientation = function(data) {
                 var device = devices.get(data.myo);
                 if(device && !device.isLocked() && !shouldSkipOrientation(device)) {
-                    var rpy;
+                    var rpy, rpyDiff;
                     if(instanceOptions.useRollPitchYaw) {
                         rpy = MyoOrientation.calculateRPY(data.orientation, instanceOptions.rollPitchYawScale);
+                        if(device.rpyOffset()) {
+                            rpyDiff = MyoOrientation.calculateRPYDiff(rpy, device.rpyOffset(), instanceOptions.rollPitchYawScale, device.direction());
+                        }
                     }
-                    device.onOrientation(data, rpy);
+                    device.onOrientation(data, rpy, rpyDiff);
                 }
             };
 
@@ -206,7 +205,7 @@
 
                     }
                     else if(!device.isLocked()) {
-                        device.onPose(data);
+                        executeDevicePose(device, data);
                     }
                 }
             };
@@ -216,16 +215,36 @@
              * @param device - the {@link MyoDevice}
              */
             var lockUnlockDevice = function(device) {
-                var timeoutPromise = $timeout(function() {
+                createTimeout(device.id, function() {
                     device.lockOrUnlock();
 
                     if(instanceOptions.broadcastOnLockUnlock) {
                         $rootScope.$broadcast('ngMyo' + (device.isLocked() ? 'Lock' : 'Unlock'), device.id);
                     }
                 }, instanceOptions.lockUnlockPoseTime);
+            };
 
-                lockTimeouts.set(device.id, timeoutPromise);
-            }
+            /**
+             * Call device pose callbacks functions id the user perform the pose during the pose time defined in options (default 300ms)
+             * @param device - the {@link MyoDevice}
+             * @param data - the websocket message data
+             */
+            var executeDevicePose = function(device, data) {
+                createTimeout(device.id, function() {
+                    device.onPose(data);
+                }, instanceOptions.poseTime);
+            };
+
+            /**
+             * Create timeout for a device. The fn will be called after time ms
+             * @param deviceId - the device id
+             * @param fn - the callback function
+             * @param time - the time to wait in ms
+             */
+            var createTimeout = function(deviceId, fn, time) {
+                var timeoutPromise = $timeout(fn, time);
+                lockTimeouts.set(deviceId, timeoutPromise);
+            };
         };
     }
 

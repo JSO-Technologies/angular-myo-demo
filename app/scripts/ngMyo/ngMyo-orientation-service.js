@@ -21,7 +21,32 @@
                 pitch: (rpyRad.pitch + Math.PI/2)/Math.PI * scale,
                 yaw: (rpyRad.yaw + Math.PI)/(Math.PI * 2) * scale
             };
-        }
+        };
+
+        this.calculateRPYDiff = function(rpy, rpyOffset, rpyScale, direction) {
+            var roll = adaptWithScale(rpy.roll - rpyOffset.roll, rpyScale) * direction;
+            var pitch = adaptWithScale(rpyOffset.pitch - rpy.pitch, rpyScale) * direction;
+            var yaw =  adaptWithScale(rpyOffset.yaw - rpy.yaw, rpyScale);
+
+            return {
+                roll: roll,
+                pitch: pitch,
+                yaw: yaw
+            }
+        };
+
+        var adaptWithScale = function(value, scale) {
+            var threashold = scale / 2;
+            if(value > threashold) {
+                return value - scale;
+            }
+            else if(value < -threashold) {
+                return value + scale;
+            }
+            else {
+                return value;
+            }
+        };
     }
 
     angular.module('ngMyo')

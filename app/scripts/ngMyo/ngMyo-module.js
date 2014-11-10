@@ -12,6 +12,7 @@
            skipOneOrientationEvery: 2,
            rollPitchYawScale:       18,
            lockUnlockPose:          'thumb_to_pinky',
-           lockUnlockPoseTime:      500
+           lockUnlockPoseTime:      500,
+           poseTime:                250
        });
 })();

@@ -1,23 +1,49 @@
 <div class="jumbotron">
-  <h1>'Allo, 'Allo!</h1>
+  <h1>Myo Demo</h1>
   <p class="lead">
-    <img src="images/yeoman.png" alt="I'm Yeoman"><br>
-    Always a pleasure scaffolding your apps.
+    <img src="images/myo-zoom.png" alt="Myo">
+    <br>See instructions below
   </p>
-  <p><a class="btn btn-lg btn-success" ng-href="#">Splendid!<span class="glyphicon glyphicon-ok"></span></a></p>
+  <p>
+      <a class="btn btn-lg" ng-class="{'btn-success': !locked, 'btn-danger': locked}" ng-href="#" id="moveButton"style="position:relative;">
+          <span ng-switch="locked">
+
+            <span ng-switch-when="true">Locked!<span class="glyphicon glyphicon-remove"></span></span>
+            <span ng-switch-when="false">Unlocked<span class="glyphicon glyphicon-ok"></span></span>
+          </span>
+      </a>
+  </p>
 </div>
 
-<div class="row marketing">
-  <h4>HTML5 Boilerplate</h4>
+<div class="row">
+  <h4>Instructions</h4>
   <p>
-    HTML5 Boilerplate is a professional front-end template for building fast, robust, and adaptable web apps or sites.
+      <table class="instructions">
+        <tr>
+            <td class="pose">Thumb_to_pinky</td>
+            <td>Lock/Unlock</td>
+        </tr>
+      <tr>
+            <td class="pose">Fingers_spread</td>
+            <td>Move element</td>
+        </tr>
+      <tr>
+            <td class="pose">Wave_in</td>
+            <td>Move element to the left</td>
+        </tr>
+      <tr>
+            <td class="pose">Wave_out</td>
+            <td>Move element to the right</td>
+        </tr>
+      <tr>
+            <td class="pose">Fist</td>
+            <td>reset</td>
+        </tr>
+      </table>
   </p>
 
-  <h4>Angular</h4>
+  <h4>ngMyo</h4>
   <p>
-    AngularJS is a toolset for building the framework most suited to your application development.
+    ngMyo is an AngularJS module to help perform great control with Thalmic Myo Armband.
   </p>
-
-  <h4>Karma</h4>
-  <p>Spectacular Test Runner for JavaScript.</p>
 </div>
