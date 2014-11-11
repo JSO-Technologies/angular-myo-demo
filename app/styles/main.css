@@ -56,7 +56,11 @@ body {
     transition-timing-function: ease-in;
 }
 
-.fall-slide {
+.slide-animation {
     transition: left 0.5s;
     transition-timing-function: ease-out;
+}
+
+#moveButton {
+    position:relative;
 }
