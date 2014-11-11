@@ -32,7 +32,7 @@
                 button.css('top', top + 'px');
                 button.css('left', left + 'px');
                 if(classToAdd) {
-                    setTimeout(function(){button.removeClass(classToAdd)}, 500);
+                    setTimeout(function(){button.removeClass(classToAdd);}, 500);
                 }
             };
 
