@@ -9,6 +9,10 @@
             var rotateOffset, leftOffset, topOffset, rotate, top, left;
             var button = angular.element('#moveButton');
 
+            var spinnerTarget = document.getElementById('spinner');
+            var spinner = new Spinner().spin(spinnerTarget);
+            $scope.myoConnected = false;
+
             var options = {
                 broadcastOnConnected: false,
                 broadcastOnDisconnected: false
@@ -42,6 +46,14 @@
             $scope.$on('ngMyoUnlock', function(event, myoDeviceId) {
                 self.locked = false;
             });
+
+            $scope.$on('ngMyoStarted', function() {
+                $scope.myoConnected = true;
+            });
+            $scope.$on('ngMyoClosed', function() {
+                $scope.myoConnected = false;
+            });
+
 
             Myo.on('fist', function(myoDevice) {
                     reset();

@@ -6,7 +6,11 @@
         <br>See instructions below
     </p>
 
-    <p>
+    <p ng-show="!myoConnected" id="spinner">
+        Try to connect to Myo ...
+    </p>
+
+    <p ng-show="myoConnected">
         <a class="btn btn-lg" ng-class="{'btn-success': !ctrl.locked, 'btn-danger': ctrl.locked}" ng-switch="ctrl.locked"
            id="moveButton">
             <span ng-switch-when="true">Locked!<span class="glyphicon glyphicon-remove"></span></span>
